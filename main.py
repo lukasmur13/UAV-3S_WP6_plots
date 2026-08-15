@@ -34,12 +34,17 @@ BASE_DIR = Path(__file__).parent / "SIM_files"
 
 PLOTS = [
     {
-        "columns": ["CN_total_downlink", "datarate_downlink"],
-        "filename": "CN_datarate.png",
-        "title": "C/N and Data Rate",
-        "ylabel": "Value",
+        "columns": ["CN_total_downlink"],
+        "filename": "C_over_N_downlink.png",
+        "title": "C/N Downlink",
+        "ylabel": "C/N [dB]",
     },
-
+    {
+        "columns": ["datarate_downlink"],
+        "filename": "datarate_dowlink.png",
+        "title": "Datarate Downlink",
+        "ylabel": "Datarate [Mbit/s]",
+    },
     # Example of multiple columns in one plot:
     #
     # {
