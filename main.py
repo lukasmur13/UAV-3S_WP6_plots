@@ -45,6 +45,24 @@ PLOTS = [
         "title": "Datarate Downlink",
         "ylabel": "Datarate [Mbit/s]",
     },
+    {
+        "columns": ["yaw", "pitch", "roll"],
+        "filename": "attitude.png",
+        "title": "UAV Attitude",
+        "ylabel": "Attitude [deg]",
+    },
+    {
+        "columns": ["heading"],
+        "filename": "heading.png",
+        "title": "UAV Heading",
+        "ylabel": "Heading [deg]",
+    },
+    {
+        "columns": ["uav_dist"],
+        "filename": "dist_uav_sat.png",
+        "title": "Distance UAV to Satellite",
+        "ylabel": "Distance [m]",
+    },
     # Example of multiple columns in one plot:
     #
     # {
