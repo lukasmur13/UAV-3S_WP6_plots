@@ -11,66 +11,96 @@ import matplotlib.pyplot as plt
 BASE_DIR = Path(__file__).parent / "SIM_files"
 
 
-# Define the plots you want to generate.
+# ============================================================
+# Plot definitions
+# ============================================================
+
+# "left_columns"  -> curves using the LEFT y-axis
+# "right_columns" -> curves using the RIGHT y-axis
 #
-# "columns" can contain one or multiple CSV headers.
+# Multiple columns can be plotted on either axis.
 #
 # Example:
-# {
-#     "columns": ["column_A"],
-#     "filename": "plot_column_A.png",
-#     "title": "Column A over time",
-#     "ylabel": "Column A"
-# }
-#
-# Multiple columns in one plot:
 #
 # {
-#     "columns": ["column_A", "column_B", "column_C"],
-#     "filename": "comparison.png",
-#     "title": "Comparison",
-#     "ylabel": "Value"
+#     "left_columns": ["yaw", "pitch", "roll"],
+#     "right_columns": ["speed"],
+#     "filename": "attitude_speed.png",
+#     "title": "UAV Attitude and Speed",
+#     "left_ylabel": "Attitude [deg]",
+#     "right_ylabel": "Speed [m/s]",
 # }
+#
+# If you only need one y-axis, use:
+#
+# "right_columns": []
+
 
 PLOTS = [
+
+    # --------------------------------------------------------
+    # C/N and Data Rate
+    # --------------------------------------------------------
+
     {
-        "columns": ["CN_total_downlink"],
-        "filename": "C_over_N_downlink.png",
-        "title": "C/N Downlink",
-        "ylabel": "C/N [dB]",
+        "left_columns": ["CN_total_downlink"],
+        "right_columns": ["datarate_downlink"],
+
+        "filename": "CN_datarate.png",
+        "title": "Downlink C/N and Data Rate",
+
+        "left_ylabel": "C/N [dB]",
+        "right_ylabel": "Data Rate [Mbps]",
     },
+
+
+    # --------------------------------------------------------
+    # UAV attitude
+    # --------------------------------------------------------
+
     {
-        "columns": ["datarate_downlink"],
-        "filename": "datarate_dowlink.png",
-        "title": "Datarate Downlink",
-        "ylabel": "Datarate [Mbit/s]",
-    },
-    {
-        "columns": ["yaw", "pitch", "roll"],
+        "left_columns": ["yaw", "pitch", "roll"],
+        "right_columns": ["heading"],
+
         "filename": "attitude.png",
         "title": "UAV Attitude",
-        "ylabel": "Attitude [deg]",
+
+        "left_ylabel": "Attitude [deg]",
+        "right_ylabel": "Heading [deg]",
     },
+
+
+    # --------------------------------------------------------
+    # UAV-to-Satellite distance
+    # --------------------------------------------------------
+
     {
-        "columns": ["heading"],
-        "filename": "heading.png",
-        "title": "UAV Heading",
-        "ylabel": "Heading [deg]",
-    },
-    {
-        "columns": ["uav_dist"],
+        "left_columns": ["uav_dist"],
+        "right_columns": [],
+
         "filename": "dist_uav_sat.png",
-        "title": "Distance UAV to Satellite",
-        "ylabel": "Distance [m]",
+        "title": "UAV-to-Satellite Distance",
+
+        "left_ylabel": "Distance [m]",
+        "satellite_switches": True,
     },
-    # Example of multiple columns in one plot:
-    #
+
+
+    # --------------------------------------------------------
+    # Example: UAV attitude + speed
+    # --------------------------------------------------------
+
     # {
-    #     "columns": ["column_A", "column_B"],
-    #     "filename": "plot_A_B.png",
-    #     "title": "Column A and B",
-    #     "ylabel": "Value",
+    #     "left_columns": ["yaw", "pitch", "roll"],
+    #     "right_columns": ["speed"],
+    #
+    #     "filename": "attitude_speed.png",
+    #     "title": "UAV Attitude and Speed",
+    #
+    #     "left_ylabel": "Attitude [deg]",
+    #     "right_ylabel": "Speed [m/s]",
     # },
+
 ]
 
 
@@ -91,81 +121,368 @@ for csv_file in csv_files:
 
     print(f"\nProcessing: {csv_file}")
 
+
+    # --------------------------------------------------------
     # Read CSV
-    df = pd.read_csv(csv_file, sep=";")
+    # --------------------------------------------------------
+
+    # Read exactly the first 500 lines of the CSV:
+    #   line 1    = header
+    #   lines 2-500 = first 499 data rows
+    df = pd.read_csv(
+        csv_file,
+        sep=";",
+        nrows=100
+    )
 
 
     # --------------------------------------------------------
-    # Check that t_rel exists
+    # Check t_rel
     # --------------------------------------------------------
 
     if "t_rel" not in df.columns:
+
         print("  ERROR: Column 't_rel' not found.")
+
         continue
 
 
     # --------------------------------------------------------
-    # Generate all requested plots
+    # Make sure t_rel is numeric
     # --------------------------------------------------------
+
+    df["t_rel"] = pd.to_numeric(
+        df["t_rel"],
+        errors="coerce"
+    )
+
+
+    # ========================================================
+    # Generate requested plots
+    # ========================================================
 
     for plot_config in PLOTS:
 
-        columns = plot_config["columns"]
+        left_columns = plot_config.get(
+            "left_columns",
+            []
+        )
 
-        # Check that all requested columns exist
+        right_columns = plot_config.get(
+            "right_columns",
+            []
+        )
+
+        all_columns = (
+            left_columns
+            + right_columns
+        )
+
+
+        # ----------------------------------------------------
+        # Check that requested columns exist
+        # ----------------------------------------------------
+
         missing_columns = [
-            column for column in columns
+            column
+            for column in all_columns
             if column not in df.columns
         ]
 
         if missing_columns:
+
             print(
                 f"  WARNING: Missing columns "
-                f"{missing_columns} -> skipping plot"
+                f"{missing_columns}"
             )
+
+            print(
+                "           Skipping this plot."
+            )
+
             continue
 
 
-        # Create figure
-        plt.figure(figsize=(10, 6))
+        # ----------------------------------------------------
+        # Convert requested columns to numeric
+        # ----------------------------------------------------
 
+        for column in all_columns:
 
-        # Plot every requested column
-        for column in columns:
-
-            plt.plot(
-                df["t_rel"],
+            df[column] = pd.to_numeric(
                 df[column],
-                label=column
+                errors="coerce"
             )
 
 
-        # Formatting
-        plt.xlabel("t_rel")
-        plt.ylabel(plot_config.get("ylabel", "Value"))
-        plt.title(plot_config.get("title", ""))
+        # ----------------------------------------------------
+        # Print information about available data
+        # ----------------------------------------------------
 
-        # Only show legend if there is more than one column
-        # (you can remove this condition if you always want one)
-        if len(columns) > 1:
-            plt.legend()
+        print(
+            f"\n  Plot: "
+            f"{plot_config['filename']}"
+        )
 
-        plt.grid(True)
-        plt.tight_layout()
+        for column in all_columns:
+
+            valid_count = (
+                df[column]
+                .notna()
+                .sum()
+            )
+
+            print(
+                f"    {column}: "
+                f"{valid_count} valid values"
+            )
 
 
-        # Save next to the CSV
-        output_file = csv_file.parent / plot_config["filename"]
+        # ====================================================
+        # Create figure
+        # ====================================================
 
-        plt.savefig(
+        fig, ax_left = plt.subplots(
+            figsize=(10, 6)
+        )
+
+
+        # ----------------------------------------------------
+        # Create right axis if needed
+        # ----------------------------------------------------
+
+        if right_columns:
+
+            ax_right = ax_left.twinx()
+
+        else:
+
+            ax_right = None
+
+
+        # ====================================================
+        # Shared color cycle
+        # ====================================================
+
+        # This is important because ax_left and ax_right
+        # normally have separate color cycles.
+        #
+        # Using one shared color index guarantees that every
+        # curve in the figure gets a different color.
+
+        colors = (
+            plt.rcParams["axes.prop_cycle"]
+            .by_key()["color"]
+        )
+
+        color_index = 0
+
+
+        # ====================================================
+        # Plot left-axis curves
+        # ====================================================
+
+        for column in left_columns:
+
+            valid = (
+                df["t_rel"].notna()
+                & df[column].notna()
+            )
+
+            ax_left.plot(
+                df.loc[valid, "t_rel"],
+                df.loc[valid, column],
+                label=column,
+                color=colors[
+                    color_index % len(colors)
+                ]
+            )
+
+            color_index += 1
+
+
+        # ====================================================
+        # Plot right-axis curves
+        # ====================================================
+
+        if ax_right is not None:
+
+            for column in right_columns:
+
+                valid = (
+                    df["t_rel"].notna()
+                    & df[column].notna()
+                )
+
+                ax_right.plot(
+                    df.loc[valid, "t_rel"],
+                    df.loc[valid, column],
+                    label=column,
+                    color=colors[
+                        color_index % len(colors)
+                    ]
+                )
+
+                color_index += 1
+
+
+        # ====================================================
+        # Satellite selection changes
+        # ====================================================
+
+        if plot_config.get(
+            "satellite_switches",
+            False
+        ):
+
+            if "sat_sel" in df.columns:
+
+                # Find points where the selected satellite changes
+                satellite_changes = (
+                    df["sat_sel"].ne(
+                        df["sat_sel"].shift()
+                    )
+                )
+
+                # Get the corresponding time values
+                switch_times = df.loc[
+                    satellite_changes,
+                    "t_rel"
+                ]
+
+                # Remove the first entry:
+                # this is the initial satellite selection,
+                # not a satellite switch
+                switch_times = switch_times.iloc[1:]
+
+                # Draw a vertical line at every satellite switch
+                for switch_time in switch_times:
+
+                    ax_left.axvline(
+                        x=switch_time,
+                        linestyle="--",
+                        linewidth=1,
+                        alpha=0.7
+                    )
+
+            else:
+
+                print(
+                    "  WARNING: Column 'sat_sel' not found "
+                    "-> no satellite switch lines"
+                )
+
+
+        # ====================================================
+        # Axis labels
+        # ====================================================
+
+        ax_left.set_xlabel(
+            "t_rel [s]"
+        )
+
+        ax_left.set_ylabel(
+            plot_config.get(
+                "left_ylabel",
+                "Value"
+            )
+        )
+
+        if ax_right is not None:
+
+            ax_right.set_ylabel(
+                plot_config.get(
+                    "right_ylabel",
+                    "Value"
+                )
+            )
+
+
+        # ====================================================
+        # Title
+        # ====================================================
+
+        ax_left.set_title(
+            plot_config.get(
+                "title",
+                ""
+            )
+        )
+
+
+        # ====================================================
+        # Grid
+        # ====================================================
+
+        ax_left.grid(
+            True,
+            alpha=0.3
+        )
+
+
+        # ====================================================
+        # Combined legend
+        # ====================================================
+
+        lines_left, labels_left = (
+            ax_left.get_legend_handles_labels()
+        )
+
+        if ax_right is not None:
+
+            lines_right, labels_right = (
+                ax_right.get_legend_handles_labels()
+            )
+
+        else:
+
+            lines_right = []
+            labels_right = []
+
+
+        ax_left.legend(
+            lines_left + lines_right,
+            labels_left + labels_right
+        )
+
+
+        # ====================================================
+        # Layout
+        # ====================================================
+
+        fig.tight_layout()
+
+
+        # ====================================================
+        # Save plot next to CSV
+        # ====================================================
+
+        output_file = (
+            csv_file.parent
+            / plot_config["filename"]
+        )
+
+        fig.savefig(
             output_file,
             dpi=300,
             bbox_inches="tight"
         )
 
-        plt.close()
 
-        print(f"  Saved: {output_file}")
+        # ====================================================
+        # Close figure
+        # ====================================================
 
+        plt.close(fig)
+
+
+        print(
+            f"    Saved: {output_file}"
+        )
+
+
+# ============================================================
+# Finished
+# ============================================================
 
 print("\nDone.")
